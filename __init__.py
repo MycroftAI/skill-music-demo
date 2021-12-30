@@ -52,14 +52,11 @@ class FileLoaderThread(Thread):
 class DemoMusicSkill(CommonPlaySkill):
     def __init__(self):
         super().__init__(name="DemoMusicSkill")
-        self.log.error('YTMUSIC INIT1')
 
     def initialize(self):
-        self.log.error('YTMUSIC INIT2')
         self.mp3_filename = "/tmp/ytvid.mp3"
         self.th = FileLoaderThread()
         self.th.start()
-        self.log.error('YTMUSIC INIT3')
 
     def get_url(self):
         try:
@@ -94,28 +91,25 @@ class DemoMusicSkill(CommonPlaySkill):
         cmd = "wget -O /tmp/search_results.html https://www.youtube.com/results?search_query=%s" % (search_term,)
         os.system(cmd)
         url = self.get_url()
-        self.log.error("YTMusic: search term = %s, url=%s" % (search_term,url))
+        self.log.debug("YTMusic: search term = %s, url=%s" % (search_term,url))
 
         if url is None:
             # no results found
-            self.log.error("No results found. Consult /tmp/search_results.html for more information")
+            self.log.info("No results found. Consult /tmp/search_results.html for more information")
             return ('not_found', CPSMatchLevel.CATEGORY, {})
 
         self.th.url = url
         self.th.mp3_filename = self.mp3_filename
         self.th.request = True
 
-        self.log.error("Results found")
         match_level = CPSMatchLevel.EXACT
         return ('found', match_level, {'original_utterance':msg})
 
     def CPS_start(self, _, data):
         """Handle request from Common Play System to start playback."""
-        self.log.error('CPS START MUSIC')
-
         ctr = 0
         while not self.th.finished:
-            self.log.error("Waiting for download to complete")
+            self.log.debug("Waiting for download to complete")
             time.sleep(1)
             ctr += 1
             if ctr == 40:
@@ -128,7 +122,7 @@ class DemoMusicSkill(CommonPlaySkill):
             if ctr == 10:
                 self.speak("Downloading your music, please wait.")
 
-        self.log.error('Download competed')
+        self.log.debug('Download competed')
         mime = 'audio/mpeg'
         self.CPS_play((self.mp3_filename, mime))
 
