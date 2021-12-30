@@ -1,35 +1,71 @@
-
-
-
-"""
-Currently uncommented code will open a youtube video in a 
-qml screen/page. User is required to actually press start.
-
-Commented out code shows how to not play videos, but 
-rather just the audio by downloading the video, pulling
-out the mp3 and playing it using mpg123
-"""
-
-from adapt.intent import IntentBuilder
-from mycroft import MycroftSkill, intent_handler
+# Copyright 2018 Mycroft AI Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 import os
 import glob
-import subprocess
+import time
+from mycroft import intent_handler, AdaptIntent
+from mycroft.skills.common_play_skill import CommonPlaySkill, CPSMatchLevel
+from threading import Thread, Event
+from pytube import YouTube
 
-class KensMusic(MycroftSkill):
+class FileLoaderThread(Thread):
     def __init__(self):
-        super().__init__()
-        #self.learning = True
+        Thread.__init__(self)
+        self.url = ''
+        self.mp3_filename = ''
+        self.request = False
+        self.finished = False
+
+    def run(self):
+        while True:
+            if self.request:
+                self.request = False
+                self.finished = False
+                os.system("rm %s" % (self.mp3_filename,))  # clean up
+
+                # grab the mp4
+                mp4_filename = "/tmp/ytvid.mp4"
+                video_url = "https://www.youtube.com/watch?v=%s" % (self.url,)
+                yt = YouTube(video_url)
+                yt.streams.first().download()
+                os.rename(yt.streams.first().default_filename, mp4_filename)
+
+                # convert to mp3
+                cmd = "ffmpeg -i %s -q:a 0 -map a %s" % (mp4_filename, self.mp3_filename)
+                os.system(cmd)
+                os.system("rm %s" % (mp4_filename,))  # clean up
+
+                self.finished = True
+            time.sleep(1)
+
+class DemoMusicSkill(CommonPlaySkill):
+    def __init__(self):
+        super().__init__(name="DemoMusicSkill")
+        self.log.error('YTMUSIC INIT1')
 
     def initialize(self):
-        #my_setting = self.settings.get('my_setting')
-        self.log.error("KensMusic:initialize()")
-
+        self.log.error('YTMUSIC INIT2')
+        self.mp3_filename = "/tmp/ytvid.mp3"
+        self.th = FileLoaderThread()
+        self.th.start()
+        self.log.error('YTMUSIC INIT3')
 
     def get_url(self):
         try:
             fh = open("/tmp/search_results.html")
         except:
+            self.log.error("Creepy internal error 101")
             return None
 
         for line in fh:
@@ -39,15 +75,13 @@ class KensMusic(MycroftSkill):
                 fh.close()
                 return( line[start_pos:end_pos] )
 
-
-    @intent_handler(IntentBuilder('KensMusicIntent')
-                    .require('KensMusicKeyword'))
-    def handle_kens_music_intent(self, message):
-        url = "https://www.youtube.com/watch?v=BD9r4n5Gsaw&start_radio=1"
-        self.gui.show_url(url, override_idle=True, override_animations=True)
+    def CPS_match_query_phrase(self, msg: str) -> tuple((str, float, dict)):
+        """Respond to Common Play Service query requests.
+        Args:
+            phrase: utterance request to parse
+        Returns:
+            Tuple(Name of station, confidence, Station information)
         """
-        msg = message.data.get("utterance")
-        # should probably just regex it 
         whack_these = ["'", "i", "me", "want", "like", "to", "hear", "play", "listen", "lsten", "some", "so"]
         for word in whack_these:
             msg = msg.replace(word, "")
@@ -57,75 +91,53 @@ class KensMusic(MycroftSkill):
         msg = msg.strip()      # speakable topic
 
         search_term = msg.replace(" ", "+")  # url encode it :-)
-        self.log.error("KensMusic: search term = %s" % (search_term,))
+        cmd = "wget -O /tmp/search_results.html https://www.youtube.com/results?search_query=%s" % (search_term,)
+        os.system(cmd)
+        url = self.get_url()
+        self.log.error("YTMusic: search term = %s, url=%s" % (search_term,url))
 
-        # look for file in cache
-        filename = "%s_sample.mp3" % (search_term,)
-        fnames = glob.glob("/home/mycroft/Music/%s" % (filename,))
+        if url is None:
+            # no results found
+            self.log.error("No results found. Consult /tmp/search_results.html for more information")
+            return ('not_found', CPSMatchLevel.CATEGORY, {})
 
-        if len(fnames) == 0:
-            # not in cache
-            self.speak(" by " + msg)
+        self.th.url = url
+        self.th.mp3_filename = self.mp3_filename
+        self.th.request = True
 
-            cmd = "wget -O /tmp/search_results.html https://www.youtube.com/results?search_query=%s" % (search_term,)
-            os.system(cmd)
-            url = self.get_url()
+        self.log.error("Results found")
+        match_level = CPSMatchLevel.EXACT
+        return ('found', match_level, {'original_utterance':msg})
 
-            if url is None:
-                self.speak("Music by %s not found" % (msg,))
-                return None
+    def CPS_start(self, _, data):
+        """Handle request from Common Play System to start playback."""
+        self.log.error('CPS START MUSIC')
 
-            self.speak("OK, this may take a few seconds")
+        ctr = 0
+        while not self.th.finished:
+            self.log.error("Waiting for download to complete")
+            time.sleep(1)
+            ctr += 1
+            if ctr == 40:
+                self.speak("Downloading of play list almost completed.")
+                ctr = 0
+            if ctr == 30:
+                self.speak("Sorry this is taking so long. Almost ready to play.")
+            if ctr == 20:
+                self.speak("Still downloading, sorry for the delay.")
+            if ctr == 10:
+                self.speak("Downloading your music, please wait.")
 
-            cmd = "pytube https://www.youtube.com/watch?v=%s" % (url,)
-            os.system(cmd)
+        self.log.error('Download competed')
+        mime = 'audio/mpeg'
+        self.CPS_play((self.mp3_filename, mime))
 
-            self.speak("Got it, let me convert it. This will only take a second or so. Bear with me, I'm getting faster every day")
-
-            # find the downloaded file
-            fnames = glob.glob("/opt/mycroft/*.mp4")
-            fname = fnames[0]
-
-            # rename it
-            cmd = 'mv "%s" /opt/mycroft/input.mp4' % (fname,)
-            os.system(cmd)
-
-            # convert to mp3
-            cmd = "ffmpeg -i /opt/mycroft/input.mp4 -q:a 0 -map a /home/mycroft/Music/%s" % (filename,)
-            os.system(cmd)
-            os.system("rm /opt/mycroft/input.mp4")  # clean up
-
-        os.system("mpg123 /home/mycroft/Music/%s" % (filename,))
-        """
-
-
-    def stop(self):
-        self.gui.remove_page("SYSTEM_UrlFrame.qml")
-        """
-        process = subprocess.Popen(
-              ["ps", "-eo", "pid,cmd"],
-              stdout=subprocess.PIPE,
-              stderr=subprocess.PIPE,
-        )
-        out, err = process.communicate()
-        out = out.decode("utf-8")
-        err = err.decode("utf-8")
-
-        plist = out.split("\n")
-        line_ctr = len(plist)
-        indx = 0
-        while indx < line_ctr:
-            cols = plist[indx].strip().split(" ")
-            if len(cols) > 1 and cols[1].startswith("mpg123"):
-                self.log.error("KensMusic found process to kill = [%s]%s" % (cols[0], plist[indx],))
-                cmd = "kill %s" % (cols[0])
-                os.system(cmd)
-
-            indx += 1
-
-        os.system("rm /opt/mycroft/input.mp4")
-        """
-
+    def stop(self) -> bool:
+        """Respond to system stop commands."""
+        self.CPS_send_status()
+        return True
 
 def create_skill():
-    return KensMusic()
+    return DemoMusicSkill()
+
+
