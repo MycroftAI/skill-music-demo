@@ -1,0 +1,5 @@
+dependencies:
+  python:
+    - pytube
+  system:
+    - ffmpeg

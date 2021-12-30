@@ -32,7 +32,7 @@ class FileLoaderThread(Thread):
             if self.request:
                 self.request = False
                 self.finished = False
-                os.system("rm %s" % (self.mp3_filename,))  # clean up
+                os.system("rm -f %s" % (self.mp3_filename,))  # clean up
 
                 # grab the mp4
                 mp4_filename = "/tmp/ytvid.mp4"
