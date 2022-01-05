@@ -178,6 +178,7 @@ Mycroft.CardDelegate {
                         KeyNavigation.down: seekableslider
                         onClicked: {
                             triggerGuiEvent("cps.gui.restart", {})
+                            root.playerPosition = 0
                         }
 
                         contentItem: Kirigami.Icon {
@@ -292,8 +293,8 @@ Mycroft.CardDelegate {
 
                     Rectangle {
                         id: positionMarker
-                        visible: !isStreaming
-                        enabled: !isStreaming
+                        visible: isStreaming
+                        enabled: isStreaming
                         anchors.verticalCenter: parent.verticalCenter
                         implicitWidth: Mycroft.Units.gridUnit * 2
                         implicitHeight: Mycroft.Units.gridUnit * 2
@@ -311,7 +312,7 @@ Mycroft.CardDelegate {
                     height: seekableslider.availableHeight
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
-                    text: "STREAMING"
+                    text: "Streaming"
                     font.pixelSize: Mycroft.Units.gridUnit * 1.5
                     font.capitalization: Font.Capitalize
                     font.bold: true
@@ -325,7 +326,7 @@ Mycroft.CardDelegate {
                     width: seekableslider.availableWidth
                     height: Mycroft.Units.gridUnit * 2
                     radius: Mycroft.Units.gridUnit
-                    color: theme.bgColor
+                    color: theme.fgColor
                 }
             }
         }
