@@ -11,43 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import os
-import glob
-import time
+import os, time
+import urllib.parse
 from mycroft import intent_handler, AdaptIntent
 from mycroft.skills.common_play_skill import CommonPlaySkill, CPSMatchLevel
-from threading import Thread, Event
-from pytube import YouTube
-
-class FileLoaderThread(Thread):
-    def __init__(self):
-        Thread.__init__(self)
-        self.url = ''
-        self.mp3_filename = ''
-        self.request = False
-        self.finished = False
-
-    def run(self):
-        while True:
-            if self.request:
-                self.request = False
-                self.finished = False
-                os.system("rm -f %s" % (self.mp3_filename,))  # clean up
-
-                # grab the mp4
-                mp4_filename = "/tmp/ytvid.mp4"
-                video_url = "https://www.youtube.com/watch?v=%s" % (self.url,)
-                yt = YouTube(video_url)
-                yt.streams.first().download()
-                os.rename(yt.streams.first().default_filename, mp4_filename)
-
-                # convert to mp3
-                cmd = "ffmpeg -i %s -q:a 0 -map a %s" % (mp4_filename, self.mp3_filename)
-                os.system(cmd)
-                os.system("rm %s" % (mp4_filename,))  # clean up
-
-                self.finished = True
-            time.sleep(1)
+from mycroft.messagebus import Message
+from .ytutils import FileLoaderThread, get_url
 
 class DemoMusicSkill(CommonPlaySkill):
     def __init__(self):
@@ -55,55 +24,104 @@ class DemoMusicSkill(CommonPlaySkill):
 
     def initialize(self):
         self.mp3_filename = "/tmp/ytvid.mp3"
+        self.artist = ''
+        self.song = ''
+        self.song_len = 0
+
         self.th = FileLoaderThread()
         self.th.start()
 
-    def get_url(self):
-        try:
-            fh = open("/tmp/search_results.html")
-        except:
-            self.log.error("Creepy internal error 101")
-            return None
+        self.actively_playing = False
+        self.debounce = time.time()
 
-        for line in fh:
-            if line.find("videoId") > 0:
-                start_pos = line.find("videoId") + 10
-                end_pos = line.find('"', start_pos)
-                fh.close()
-                return( line[start_pos:end_pos] )
+        # get from config
+        self.platform = "mycroft_mark_2" 
+        self.register_gui_handlers()
+
+
+    def register_gui_handlers(self):
+        """Register handlers for events to or from the GUI."""
+        self.bus.on('mycroft.audio.service.pause', self.handle_media_pause)
+        self.bus.on('mycroft.audio.service.resume', self.handle_media_resume)
+        self.bus.on('mycroft.audio.queue_end', self.handle_media_finished)
+        self.bus.on('demo-music.cps.gui.restart', self.handle_gui_restart)
+        self.bus.on('demo-music.cps.gui.pause', self.handle_gui_pause)
+        self.bus.on('demo-music.cps.gui.play', self.handle_gui_play)
+
+    def handle_gui_restart(self,msg):
+        if time.time() - self.debounce < 3:
+            return 
+
+        self.debounce = time.time()
+        self.bus.emit(Message('mycroft.audio.service.stop'))
+        time.sleep(1.5)
+        mime = 'audio/mpeg'
+        self.CPS_play((self.mp3_filename, mime))
+
+    def handle_gui_pause(self,msg):
+        self.gui['status'] = "Paused"
+        self.bus.emit(Message('mycroft.audio.service.pause'))
+
+    def handle_gui_play(self,msg):
+        self.gui['status'] = "Playing"
+        self.bus.emit(Message('mycroft.audio.service.resume'))
+
+    def handle_media_pause(self,msg):
+        self.gui['status'] = "Paused"
+
+    def handle_media_resume(self,msg):
+        self.gui['status'] = "Playing"
+
+    def handle_media_finished(self, message):
+        """Handle media playback finishing."""
+        self.actively_playing = False
+        self.gui.release()
 
     def CPS_match_query_phrase(self, msg: str) -> tuple((str, float, dict)):
         """Respond to Common Play Service query requests.
-        Args:
-            phrase: utterance request to parse
-        Returns:
-            Tuple(Name of station, confidence, Station information)
         """
         whack_these = ["'", "i", "me", "want", "like", "to", "hear", "play", "listen", "lsten", "some", "so"]
-        for word in whack_these:
-            msg = msg.replace(word, "")
 
-        msg = msg.replace("&", "and")
+        ma = msg.split(" ")
+        msg = ''
+        for m in ma:
+            if m not in whack_these:
+                msg += m + " "
+
+        msg = msg.strip()
+        msg = msg.replace("&", " and ")
         msg = msg.replace("  ", " ")
-        msg = msg.strip()      # speakable topic
-
-        search_term = msg.replace(" ", "+")  # url encode it :-)
+        msg = msg.strip()  
+        search_term = urllib.parse.quote_plus(msg)
         cmd = "wget -O /tmp/search_results.html https://www.youtube.com/results?search_query=%s" % (search_term,)
         os.system(cmd)
-        url = self.get_url()
-        self.log.debug("YTMusic: search term = %s, url=%s" % (search_term,url))
+        url, img_url, artist, song, song_len = get_url()
+        self.log.debug("YTMusic: Search term = %s, url=%s, image=%s, artist=%s, song=%s, len=%s" % (search_term,url,img_url, artist, song, song_len))
 
         if url is None:
             # no results found
-            self.log.info("No results found. Consult /tmp/search_results.html for more information")
+            self.log.error("YTMusic: No results found. Consult /tmp/search_results.html for more information")
             return ('not_found', CPSMatchLevel.CATEGORY, {})
 
         self.th.url = url
+        self.th.img_url = img_url
         self.th.mp3_filename = self.mp3_filename
         self.th.request = True
+        self.artist = artist
+        self.song = song
+        self.song_len = song_len
 
         match_level = CPSMatchLevel.EXACT
-        return ('found', match_level, {'original_utterance':msg})
+        return ('found', match_level, {'original_utterance':search_term})
+
+    def _show_gui_page(self, page):
+        """Show a page variation depending on platform."""
+        if self.gui.connected:
+            if self.platform == "mycroft_mark_2":
+                qml_page = f"{page}_mark_ii.qml"
+            else:
+                qml_page = f"{page}_scalable.qml"
+            self.gui.show_page(qml_page, override_idle=True)
 
     def CPS_start(self, _, data):
         """Handle request from Common Play System to start playback."""
@@ -122,16 +140,42 @@ class DemoMusicSkill(CommonPlaySkill):
             if ctr == 10:
                 self.speak("Downloading your music, please wait.")
 
-        self.log.debug('Download competed')
+        img_filename = self.th.img_filename
+        self.log.debug("Download competed, img_filename=%s" % (img_filename,))
         mime = 'audio/mpeg'
         self.CPS_play((self.mp3_filename, mime))
 
+        if len(self.artist) > 15:
+            self.artist = self.artist[:15]
+
+        if len(self.song) > 30:
+            self.song = self.song[:27] + '...'
+
+        self.gui['media'] = {
+            "image": img_filename,
+            "artist": self.artist,
+            "song": self.song,
+            "length": self.song_len * 1000,
+            "skill": self.skill_id,
+            "streaming": 'true'
+        }
+        self.actively_playing = True
+        self.gui['theme'] = dict(fgColor="gray", bgColor="black")
+        self.gui['status'] = "Playing"
+        self._show_gui_page("AudioPlayer")
+        self.CPS_send_status(
+            image=img_filename,
+            artist=self.artist
+        )
+
     def stop(self) -> bool:
-        """Respond to system stop commands."""
         self.CPS_send_status()
+        if self.actively_playing:
+            self.actively_playing = False
+            self.gui.release()
         return True
+
 
 def create_skill():
     return DemoMusicSkill()
-
 
