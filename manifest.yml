@@ -2,4 +2,4 @@ dependencies:
   python:
     - pytube
   system:
-    - ffmpeg
+    all: ffmpeg
