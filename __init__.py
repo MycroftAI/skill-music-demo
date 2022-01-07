@@ -38,6 +38,9 @@ class DemoMusicSkill(CommonPlaySkill):
         self.platform = "mycroft_mark_2" 
         self.register_gui_handlers()
 
+        os.system("rm /tmp/ytvid.mp3")
+        os.system("rm /tmp/ytvid.mp4")
+
 
     def register_gui_handlers(self):
         """Register handlers for events to or from the GUI."""
@@ -75,12 +78,16 @@ class DemoMusicSkill(CommonPlaySkill):
     def handle_media_finished(self, message):
         """Handle media playback finishing."""
         self.actively_playing = False
-        self.gui.release()
+        try:
+            self.gui.release()
+        except:
+            pass
 
     def CPS_match_query_phrase(self, msg: str) -> tuple((str, float, dict)):
         """Respond to Common Play Service query requests.
         """
-        whack_these = ["'", "i", "me", "want", "like", "to", "hear", "play", "listen", "lsten", "some", "so"]
+        #whack_these = ["'", "i", "me", "want", "like", "to", "hear", "play", "listen", "lsten", "some", "so"]
+        whack_these = ["'", "hear", "play", "listen"]
 
         ma = msg.split(" ")
         msg = ''
@@ -96,11 +103,11 @@ class DemoMusicSkill(CommonPlaySkill):
         cmd = "wget -O /tmp/search_results.html https://www.youtube.com/results?search_query=%s" % (search_term,)
         os.system(cmd)
         url, img_url, artist, song, song_len = get_url()
-        self.log.debug("YTMusic: Search term = %s, url=%s, image=%s, artist=%s, song=%s, len=%s" % (search_term,url,img_url, artist, song, song_len))
+        self.log.debug("DemoMusicSkill: Search term = %s, url=%s, image=%s, artist=%s, song=%s, len=%sn" % (search_term,url,img_url, artist, song, song_len))
 
-        if url is None:
-            # no results found
-            self.log.error("YTMusic: No results found. Consult /tmp/search_results.html for more information")
+        if url is None or song_len == 0:
+            # no results found or len 0 usually means a stream
+            self.log.error("DemoMusicSkill: No results found. Consult /tmp/search_results.html for more information")
             return ('not_found', CPSMatchLevel.CATEGORY, {})
 
         self.th.url = url
@@ -126,8 +133,14 @@ class DemoMusicSkill(CommonPlaySkill):
     def CPS_start(self, _, data):
         """Handle request from Common Play System to start playback."""
         ctr = 0
+        self.actively_playing = True
         while not self.th.finished:
-            self.log.debug("Waiting for download to complete")
+            self.log.debug("Waiting for download to complete: %s - %s" % (self.th.finished, self.actively_playing))
+            if not self.actively_playing:
+                # cancelled
+                return
+
+            # some things can take a while
             time.sleep(1)
             ctr += 1
             if ctr == 40:
@@ -169,13 +182,24 @@ class DemoMusicSkill(CommonPlaySkill):
         )
 
     def stop(self) -> bool:
+        """
+        BUG - you need to be state driven.
+        stop means different things depending 
+        upon whether you are downloading, playing
+        or doing nothing at all. in current state
+        will not stop active download now but was 
+        getting a stop right away which caused issues.
+        I suspect I am not feeding original CPS status 
+        properly or playing media correctly
+        """
         self.CPS_send_status()
         if self.actively_playing:
-            self.actively_playing = False
-            self.gui.release()
+            #self.actively_playing = False
+            try:
+                self.gui.release()
+            except:
+                pass
         return True
-
 
 def create_skill():
     return DemoMusicSkill()
-
