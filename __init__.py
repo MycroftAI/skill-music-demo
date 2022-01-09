@@ -36,20 +36,11 @@ class DemoMusicSkill(CommonPlaySkill):
 
         # get from config
         self.platform = "mycroft_mark_2" 
-        self.register_gui_handlers()
 
         os.system("rm /tmp/ytvid.mp3")
         os.system("rm /tmp/ytvid.mp4")
 
-
-    def register_gui_handlers(self):
-        """Register handlers for events to or from the GUI."""
-        self.bus.on('mycroft.audio.service.pause', self.handle_media_pause)
-        self.bus.on('mycroft.audio.service.resume', self.handle_media_resume)
-        self.bus.on('mycroft.audio.queue_end', self.handle_media_finished)
         self.bus.on('demo-music.cps.gui.restart', self.handle_gui_restart)
-        self.bus.on('demo-music.cps.gui.pause', self.handle_gui_pause)
-        self.bus.on('demo-music.cps.gui.play', self.handle_gui_play)
 
     def handle_gui_restart(self,msg):
         if time.time() - self.debounce < 3:
@@ -60,28 +51,6 @@ class DemoMusicSkill(CommonPlaySkill):
         time.sleep(1.5)
         mime = 'audio/mpeg'
         self.CPS_play((self.mp3_filename, mime))
-
-    def handle_gui_pause(self,msg):
-        self.gui['status'] = "Paused"
-        self.bus.emit(Message('mycroft.audio.service.pause'))
-
-    def handle_gui_play(self,msg):
-        self.gui['status'] = "Playing"
-        self.bus.emit(Message('mycroft.audio.service.resume'))
-
-    def handle_media_pause(self,msg):
-        self.gui['status'] = "Paused"
-
-    def handle_media_resume(self,msg):
-        self.gui['status'] = "Playing"
-
-    def handle_media_finished(self, message):
-        """Handle media playback finishing."""
-        self.actively_playing = False
-        try:
-            self.gui.release()
-        except:
-            pass
 
     def CPS_match_query_phrase(self, msg: str) -> tuple((str, float, dict)):
         """Respond to Common Play Service query requests.
@@ -121,15 +90,6 @@ class DemoMusicSkill(CommonPlaySkill):
         match_level = CPSMatchLevel.EXACT
         return ('found', match_level, {'original_utterance':search_term})
 
-    def _show_gui_page(self, page):
-        """Show a page variation depending on platform."""
-        if self.gui.connected:
-            if self.platform == "mycroft_mark_2":
-                qml_page = f"{page}_mark_ii.qml"
-            else:
-                qml_page = f"{page}_scalable.qml"
-            self.gui.show_page(qml_page, override_idle=True)
-
     def CPS_start(self, _, data):
         """Handle request from Common Play System to start playback."""
         ctr = 0
@@ -161,45 +121,20 @@ class DemoMusicSkill(CommonPlaySkill):
         if len(self.artist) > 15:
             self.artist = self.artist[:15]
 
+        if not self.artist:
+            self.artist = " "
+
         if len(self.song) > 30:
             self.song = self.song[:27] + '...'
 
-        self.gui['media'] = {
-            "image": img_filename,
-            "artist": self.artist,
-            "song": self.song,
-            "length": self.song_len * 1000,
-            "skill": self.skill_id,
-            "streaming": 'true'
-        }
+        self.CPS_send_status(image=img_filename, track=self.song)
+
         self.actively_playing = True
-        self.gui['theme'] = dict(fgColor="gray", bgColor="black")
-        self.gui['status'] = "Playing"
-        self._show_gui_page("AudioPlayer")
         self.CPS_send_status(
             image=img_filename,
+            track=self.song,
             artist=self.artist
         )
-
-    def stop(self) -> bool:
-        """
-        BUG - you need to be state driven.
-        stop means different things depending 
-        upon whether you are downloading, playing
-        or doing nothing at all. in current state
-        will not stop active download now but was 
-        getting a stop right away which caused issues.
-        I suspect I am not feeding original CPS status 
-        properly or playing media correctly
-        """
-        self.CPS_send_status()
-        if self.actively_playing:
-            #self.actively_playing = False
-            try:
-                self.gui.release()
-            except:
-                pass
-        return True
 
 def create_skill():
     return DemoMusicSkill()
