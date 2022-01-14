@@ -15,7 +15,11 @@ import os, re, glob, time, json
 from threading import Thread, Event
 from pytube import YouTube
 
-MAX_SONG_LEN_IN_SECONDS = 7200
+# this is a hack to try to filter 
+# out streams and videos that are
+# too long to download while a user
+# is waiting. 
+MAX_SONG_LEN_IN_SECONDS = 3000
 
 class FileLoaderThread(Thread):
     def __init__(self):

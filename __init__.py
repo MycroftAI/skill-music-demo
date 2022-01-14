@@ -107,13 +107,14 @@ class DemoMusicSkill(CommonPlaySkill):
 
         if url is None or song_len == 0:
             # no results found or len 0 usually means a stream
-            self.log.error("DemoMusicSkill: No results found. Consult /tmp/search_results.html for more information")
+            self.log.debug("DemoMusicSkill: No results found. Consult /tmp/search_results.html for more information")
             return ('not_found', CPSMatchLevel.CATEGORY, {})
 
         self.th.url = url
         self.th.img_url = img_url
         self.th.mp3_filename = self.mp3_filename
-        self.th.request = True
+        self.th.request = True  # initiates a download request
+        self.start_download_time = time.time()
         self.artist = artist
         self.song = song
         self.song_len = song_len
@@ -183,23 +184,23 @@ class DemoMusicSkill(CommonPlaySkill):
 
     def stop(self) -> bool:
         """
-        BUG - you need to be state driven.
-        stop means different things depending 
-        upon whether you are downloading, playing
-        or doing nothing at all. in current state
-        will not stop active download now but was 
-        getting a stop right away which caused issues.
-        I suspect I am not feeding original CPS status 
-        properly or playing media correctly
+        for some odd reason (perhaps playback handing off to us or
+        due to recent refactoring of the skill base class) we get a 
+        stop() call almost immediately, so we simply wait until at 
+        least 3 seconds have passed before we honor any stop() calls
         """
-        self.CPS_send_status()
-        if self.actively_playing:
-            #self.actively_playing = False
-            try:
-                self.gui.release()
-            except:
-                pass
-        return True
+        elapsed = time.time() - self.start_download_time
+        if elapsed > 5.0:
+            self.CPS_send_status()
+            if self.actively_playing:
+                self.actively_playing = False
+                try:
+                    self.gui.release()
+                except:
+                    pass
+            return True
+        else:
+            return False
 
 def create_skill():
     return DemoMusicSkill()
