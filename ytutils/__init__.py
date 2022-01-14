@@ -63,7 +63,7 @@ class FileLoaderThread(Thread):
                 os.rename(yt.streams.first().default_filename, mp4_filename)
 
                 # convert to mp3
-                cmd = "ffmpeg -i %s -q:a 0 -map a %s" % (mp4_filename, self.mp3_filename)
+                cmd = "ffmpeg -i %s -q:a 0 -ac 2 -map a %s" % (mp4_filename, self.mp3_filename)
                 os.system(cmd)
                 os.system("rm -f %s" % (mp4_filename,))  # clean up
 
