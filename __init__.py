@@ -47,9 +47,9 @@ class DemoMusicSkill(CommonPlaySkill):
         self.bus.on('mycroft.audio.service.pause', self.handle_media_pause)
         self.bus.on('mycroft.audio.service.resume', self.handle_media_resume)
         self.bus.on('mycroft.audio.queue_end', self.handle_media_finished)
-        self.bus.on('demo-music.cps.gui.restart', self.handle_gui_restart)
-        self.bus.on('demo-music.cps.gui.pause', self.handle_gui_pause)
-        self.bus.on('demo-music.cps.gui.play', self.handle_gui_play)
+        self.gui.register_handler('cps.gui.restart', self.handle_gui_restart)
+        self.gui.register_handler('cps.gui.pause', self.handle_gui_pause)
+        self.gui.register_handler('cps.gui.play', self.handle_gui_play)
 
     def handle_gui_restart(self,msg):
         if time.time() - self.debounce < 3:
