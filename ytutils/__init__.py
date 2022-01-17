@@ -204,6 +204,10 @@ def get_url():
                     'song_len':song_len
                     })
 
+    if len(play_list) == 0:
+        # could not find a suitable video
+        return '', '', '', '', 0
+
     # we could create a playlist but for 
     # now we just take the first song
     video_id = play_list[0]['video_id']
