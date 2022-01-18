@@ -11,118 +11,145 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import os, time
-import urllib.parse
-from mycroft import intent_handler, AdaptIntent
+import threading
+import typing
+from enum import Enum
+
 from mycroft.skills.common_play_skill import CommonPlaySkill, CPSMatchLevel
 from mycroft.messagebus import Message
-from .ytutils import FileLoaderThread, get_url
+from mycroft.util.log import LOG
+
+from pytube import Search
+
+
+class State(str, Enum):
+    INACTIVE = "inactive"
+    SEARCHING = "searching"
+    PLAYING = "playing"
+
 
 class DemoMusicSkill(CommonPlaySkill):
     def __init__(self):
         super().__init__(name="DemoMusicSkill")
 
     def initialize(self):
-        self.mp3_filename = "/tmp/ytvid.mp3"
-        self.artist = ''
-        self.song = ''
-        self.song_len = 0
-
-        self.th = FileLoaderThread()
-        self.th.start()
-
-        self.actively_playing = False
-        self.debounce = time.time()
+        self.state: State = State.INACTIVE
+        self.state: State = State.INACTIVE
 
         # get from config
-        self.platform = "mycroft_mark_2" 
+        self.platform = "mycroft_mark_2"
         self.register_gui_handlers()
 
-        os.system("rm /tmp/ytvid.mp3")
-        os.system("rm /tmp/ytvid.mp4")
-        self.start_download_time = time.time()
+        # Thread used to search YouTube
+        self.search_thread: typing.Optional[threading.Thread] = None
 
+        # Event to signal main thread when search is complete
+        self.search_ready = threading.Event()
+
+        # Selected search result from YouTube
+        self.result = None
+
+        # Selected audio stream to play from search result
+        self.stream = None
 
     def register_gui_handlers(self):
         """Register handlers for events to or from the GUI."""
-        self.bus.on('mycroft.audio.service.pause', self.handle_media_pause)
-        self.bus.on('mycroft.audio.service.resume', self.handle_media_resume)
-        self.bus.on('mycroft.audio.queue_end', self.handle_media_finished)
-        self.gui.register_handler('cps.gui.restart', self.handle_gui_restart)
-        self.gui.register_handler('cps.gui.pause', self.handle_gui_pause)
-        self.gui.register_handler('cps.gui.play', self.handle_gui_play)
+        self.bus.on("mycroft.audio.service.pause", self.handle_media_pause)
+        self.bus.on("mycroft.audio.service.resume", self.handle_media_resume)
+        self.bus.on("mycroft.audio.queue_end", self.handle_media_finished)
+        self.gui.register_handler("cps.gui.restart", self.handle_gui_restart)
+        self.gui.register_handler("cps.gui.pause", self.handle_gui_pause)
+        self.gui.register_handler("cps.gui.play", self.handle_gui_play)
 
-    def handle_gui_restart(self,msg):
-        if time.time() - self.debounce < 3:
-            return 
+    def handle_gui_restart(self, msg):
+        pass
 
-        self.debounce = time.time()
-        self.bus.emit(Message('mycroft.audio.service.stop'))
-        time.sleep(1.5)
-        mime = 'audio/mpeg'
-        self.CPS_play((self.mp3_filename, mime))
+    def handle_gui_pause(self, msg):
+        self.gui["status"] = "Paused"
+        self.bus.emit(Message("mycroft.audio.service.pause"))
 
-    def handle_gui_pause(self,msg):
-        self.gui['status'] = "Paused"
-        self.bus.emit(Message('mycroft.audio.service.pause'))
+    def handle_gui_play(self, msg):
+        self.gui["status"] = "Playing"
+        self.bus.emit(Message("mycroft.audio.service.resume"))
 
-    def handle_gui_play(self,msg):
-        self.gui['status'] = "Playing"
-        self.bus.emit(Message('mycroft.audio.service.resume'))
+    def handle_media_pause(self, msg):
+        self.gui["status"] = "Paused"
 
-    def handle_media_pause(self,msg):
-        self.gui['status'] = "Paused"
-
-    def handle_media_resume(self,msg):
-        self.gui['status'] = "Playing"
+    def handle_media_resume(self, msg):
+        self.gui["status"] = "Playing"
 
     def handle_media_finished(self, message):
         """Handle media playback finishing."""
-        self.actively_playing = False
-        try:
-            self.gui.release()
-        except:
-            pass
+        self._go_inactive()
 
-    def get_match_level(self, search_term, title, artist):
-        return CPSMatchLevel(1 + (len( set(search_term.split(' ')) - ( set.union( set(title.split(' ')) , set(artist.split(' ')) ) ) ) ))
-
-    def CPS_match_query_phrase(self, msg: str) -> tuple((str, float, dict)):
+    def CPS_match_query_phrase(self, phrase: str) -> tuple((str, float, dict)):
         """Respond to Common Play Service query requests.
         """
-        msg = msg.replace(' by ',' ')
-        if msg.startswith('play '):
-            msg = msg[len('play '):]
+        phrase = phrase.replace(" by ", " ")
 
-        if msg.startswith('listen '):
-            msg = msg[len('listen '):]
+        for word in ["play", "listen"]:
+            if phrase.startswith(word):
+                phrase = phrase[len(word) :]
+                break
 
-        msg = msg.strip()
-        msg = msg.replace('&', ' and ')
-        msg = msg.replace('  ', ' ')
-        msg = msg.strip()  
+        phrase = phrase.strip()
+        phrase = phrase.replace("&", " and ")
+        phrase = phrase.replace("  ", " ")
+        phrase = phrase.strip()
 
-        search_term = urllib.parse.quote_plus(msg)
-        cmd = "wget -O /tmp/search_results.html https://www.youtube.com/results?search_query=%s" % (search_term,)
-        os.system(cmd)
-        url, img_url, artist, song, song_len = get_url()
+        # Run search in separate thread
+        self._search_for_music(phrase)
 
-        if url is None or song_len == 0:
-            # no results found or len 0 usually means a stream
-            self.log.debug("DemoMusicSkill: No results found. Consult /tmp/search_results.html for more information")
-            return ('not_found', CPSMatchLevel.GENERIC, {})  
+        # Assume we'll get something
+        return (phrase, CPSMatchLevel.EXACT, {})
 
-        self.start_download_time = time.time()
-        self.th.url = url
-        self.th.img_url = img_url
-        self.th.mp3_filename = self.mp3_filename
-        self.th.request = True  # initiates a download request
-        self.artist = artist
-        self.song = song
-        self.song_len = song_len
-        match_level = self.get_match_level(search_term, song, artist)
-        match_term = artist + ' ' + song
-        return ( match_term, match_level, {'original_utterance':search_term, 'resource_url':url} )
+    def _search_for_music(self, phrase: str):
+        """Run search in separate thread to avoid CPS timeouts"""
+        self.search_ready.clear()
+        self.state = State.SEARCHING
+
+        self.result = None
+        self.stream = None
+        self.search_thread = threading.Thread(
+            target=self._run_search, daemon=True, args=(phrase,)
+        )
+        self.search_thread.start()
+
+    def _run_search(self, phrase: str):
+        """Search YouTube and grab first audio stream"""
+        try:
+            LOG.info("Searching YouTube for %s", phrase)
+            yt_results = Search(phrase).results
+
+            for result in yt_results:
+                try:
+                    # From the docs:
+                    #
+                    # Raises different exceptions based on why the video
+                    # is unavailable, otherwise does nothing.
+                    result.check_availability()
+                except Exception:
+                    # Skip result
+                    continue
+
+                for stream in result.streams:
+                    if stream.includes_audio_track:
+                        # Take the first available stream with audio
+                        self.result = result
+                        self.stream = stream
+                        break
+
+                if self.stream is not None:
+                    break
+
+            if (self.stream is None) or (self.result is None):
+                LOG.error("No stream found")
+            else:
+                LOG.info("Stream found")
+        except Exception:
+            LOG.exception("error searching YouTube")
+        finally:
+            self.search_ready.set()
 
     def _show_gui_page(self, page):
         """Show a page variation depending on platform."""
@@ -135,76 +162,64 @@ class DemoMusicSkill(CommonPlaySkill):
 
     def CPS_start(self, _, data):
         """Handle request from Common Play System to start playback."""
-        ctr = 0
-        self.actively_playing = True
-        while not self.th.finished:
-            self.log.debug("Waiting for download to complete: %s - %s" % (self.th.finished, self.actively_playing))
-            if not self.actively_playing:
-                # cancelled
-                return
+        search_successful = self.search_ready.wait(timeout=20)
 
-            # some things can take a while
-            time.sleep(1)
-            ctr += 1
-            if ctr == 40:
-                self.speak("Downloading of play list almost completed.")
-                ctr = 0
-            if ctr == 30:
-                self.speak("Sorry this is taking so long. Almost ready to play.")
-            if ctr == 20:
-                self.speak("Still downloading media, sorry for the delay.")
-            if ctr == 10:
-                self.speak("Downloading your selection, please wait.")
+        if (not search_successful) or (self.stream is None) or (self.result is None):
+            self.speak("No search results were found.")
 
-        img_filename = self.th.img_filename
-        self.log.debug("Download competed, img_filename=%s" % (img_filename,))
-        mime = 'audio/mpeg'
-        self.CPS_play((self.mp3_filename, mime))
+            # We've already been stopped by CPS, so not much else to do
+            self._go_inactive()
+            return
 
-        if len(self.artist) > 15:
-            self.artist = self.artist[:15]
+        # This is critical for some reason
+        mime = "audio/mpeg"
 
-        if len(self.song) > 25:
-            self.song = self.song[:27] + '...'
+        self.CPS_play((self.stream.url, mime))
 
-        self.gui['media'] = {
-            "image": img_filename,
-            "artist": self.artist,
-            "song": self.song,
-            "length": self.song_len * 1000,
+        artist = self.result.author
+        song = self.result.title
+
+        if len(artist) > 15:
+            artist = artist[:15]
+
+        if len(song) > 25:
+            song = song[:27] + "..."
+
+        self.gui["media"] = {
+            "image": self.result.thumbnail_url,
+            "artist": artist,
+            "song": song,
+            "length": self.result.length,
             "skill": self.skill_id,
-            "streaming": 'true'
+            "streaming": "true",
         }
-        self.gui['theme'] = dict(fgColor="gray", bgColor="black")
-        self.gui['status'] = "Playing"
+
+        self.gui["theme"] = dict(fgColor="gray", bgColor="black")
+        self.gui["status"] = "Playing"
+
         self._show_gui_page("AudioPlayer")
-        self.CPS_send_status(
-            image=img_filename,
-            artist=self.artist
-        )
+
+        self.state = State.PLAYING
 
     def stop(self) -> bool:
-        """
-        for some odd reason (perhaps playback handing off to us or
-        due to recent refactoring of the skill base class) we get a 
-        stop() call almost immediately, so we simply wait until at 
-        least x seconds have passed before we honor any stop() calls
-        """
-        elapsed = time.time() - self.start_download_time
-        if elapsed > 5.0:
-            # only process if at least 5 seconds have 
-            # passed since we started a download
-            self.start_download_time = time.time()
-            self.CPS_send_status()
-            if self.actively_playing:
-                self.actively_playing = False  # cancel download
-                try:
-                    self.gui.release()
-                except:
-                    pass
-            return True
-        else:
+        if self.state != State.PLAYING:
             return False
+
+        LOG.info("Stopping")
+
+        self._go_inactive()
+
+        return True
+
+    def _go_inactive(self):
+        self.stream = None
+        self.result = None
+
+        self.state = State.INACTIVE
+
+        if self.gui.connected:
+            self.gui.release()
+
 
 def create_skill():
     return DemoMusicSkill()
