@@ -15,6 +15,7 @@ import threading
 import typing
 from enum import Enum
 
+from mycroft import intent_handler, AdaptIntent
 from mycroft.skills.common_play_skill import CommonPlaySkill, CPSMatchLevel
 from mycroft.messagebus import Message
 from mycroft.util.log import LOG
@@ -61,6 +62,14 @@ class DemoMusicSkill(CommonPlaySkill):
         self.gui.register_handler("cps.gui.pause", self.handle_gui_pause)
         self.gui.register_handler("cps.gui.play", self.handle_gui_play)
 
+    @intent_handler(AdaptIntent("").require("Show").require("Music"))
+    def handle_show_music(self, message):
+        with self.activity():
+            if self.state == State.PLAYING:
+                self._show_gui_page("AudioPlayer")
+            else:
+                self.speak("No music is currently playing", wait=True)
+
     def handle_gui_restart(self, msg):
         pass
 
@@ -80,11 +89,17 @@ class DemoMusicSkill(CommonPlaySkill):
 
     def handle_media_finished(self, message):
         """Handle media playback finishing."""
-        self._go_inactive()
+        # Gets called every time music is paused, so unusable
+        # self._go_inactive()
 
     def CPS_match_query_phrase(self, phrase: str) -> tuple((str, float, dict)):
         """Respond to Common Play Service query requests.
         """
+        phrase = phrase.strip()
+
+        if not phrase:
+            return None
+
         phrase = phrase.replace(" by ", " ")
 
         for word in ["play", "listen"]:
@@ -212,6 +227,7 @@ class DemoMusicSkill(CommonPlaySkill):
         return True
 
     def _go_inactive(self):
+        LOG.info("Music is now inactive")
         self.stream = None
         self.result = None
 
