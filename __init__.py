@@ -189,7 +189,7 @@ class DemoMusicSkill(CommonPlaySkill):
             "image": self.result.thumbnail_url,
             "artist": artist,
             "song": song,
-            "length": self.result.length,
+            "length": self.result.length * 1000,
             "skill": self.skill_id,
             "streaming": "true",
         }
