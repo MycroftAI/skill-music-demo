@@ -89,8 +89,7 @@ class DemoMusicSkill(CommonPlaySkill):
 
     def handle_media_finished(self, message):
         """Handle media playback finishing."""
-        # Gets called every time music is paused, so unusable
-        # self._go_inactive()
+        self._go_inactive()
 
     def CPS_match_query_phrase(self, phrase: str) -> tuple((str, float, dict)):
         """Respond to Common Play Service query requests.
