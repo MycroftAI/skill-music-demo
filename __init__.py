@@ -54,13 +54,13 @@ class DemoMusicSkill(CommonPlaySkill):
         # Selected audio stream to play from search result
         self.stream = None
 
-        # Seconds into the current stream
-        self._player_position: int = 0
+        self._player_position_ms: int = 0
 
     def register_gui_handlers(self):
         """Register handlers for events to or from the GUI."""
         self.bus.on("mycroft.audio.service.pause", self.handle_media_pause)
         self.bus.on("mycroft.audio.service.resume", self.handle_media_resume)
+        self.bus.on("mycroft.audio.service.position", self.handle_media_position)
         self.bus.on("mycroft.audio.queue_end", self.handle_media_finished)
         self.gui.register_handler("cps.gui.restart", self.handle_gui_restart)
         self.gui.register_handler("cps.gui.pause", self.handle_gui_pause)
@@ -100,6 +100,13 @@ class DemoMusicSkill(CommonPlaySkill):
             self.state = State.PLAYING
 
         self.gui["status"] = "Playing"
+
+    def handle_media_position(self, msg):
+        position_sec = msg.data.get("position")
+        if (position_sec is not None) and (position_sec >= 0):
+            # TODO: Get this into the GUI somehow
+            # self.gui["playerPosition"] = ... does not work
+            self._player_position_ms = int(position_sec * 1000)
 
     def handle_media_finished(self, message):
         """Handle media playback finishing."""
@@ -204,7 +211,7 @@ class DemoMusicSkill(CommonPlaySkill):
 
         self.CPS_play((self.stream.url, mime))
 
-        self._player_position = 0
+        self._player_position_ms = 0
         self._setup_gui()
         self.gui["status"] = "Playing"
 
@@ -227,18 +234,20 @@ class DemoMusicSkill(CommonPlaySkill):
         if len(song) > 25:
             song = song[:27] + "..."
 
-        self.gui["media"] = {
+        media_settings = {
             "image": self.result.thumbnail_url,
             "artist": artist,
             "song": song,
             "length": self.result.length * 1000,
             "skill": self.skill_id,
             "streaming": "true",
-            "position": self._player_position,
+            "position": self._player_position_ms,
         }
 
+        self.gui["media"] = media_settings
+
     def stop(self) -> bool:
-        if self.state != State.PLAYING:
+        if self.state not in {State.PLAYING, State.PAUSED}:
             return False
 
         LOG.info("Stopping")

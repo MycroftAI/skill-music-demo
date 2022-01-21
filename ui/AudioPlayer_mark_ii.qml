@@ -53,7 +53,7 @@ Mycroft.CardDelegate {
     }
 
     onPlayerStateChanged: {
-        console.log(playerState)
+        //console.log(playerState)
         if (!isStreaming) {
             root.playerPosition = media.position
         }
