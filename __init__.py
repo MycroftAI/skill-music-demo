@@ -27,6 +27,7 @@ class State(str, Enum):
     INACTIVE = "inactive"
     SEARCHING = "searching"
     PLAYING = "playing"
+    PAUSED = "paused"
 
 
 class DemoMusicSkill(CommonPlaySkill):
@@ -53,6 +54,9 @@ class DemoMusicSkill(CommonPlaySkill):
         # Selected audio stream to play from search result
         self.stream = None
 
+        # Seconds into the current stream
+        self._player_position: int = 0
+
     def register_gui_handlers(self):
         """Register handlers for events to or from the GUI."""
         self.bus.on("mycroft.audio.service.pause", self.handle_media_pause)
@@ -65,26 +69,36 @@ class DemoMusicSkill(CommonPlaySkill):
     @intent_handler(AdaptIntent("").require("Show").require("Music"))
     def handle_show_music(self, message):
         with self.activity():
-            if self.state == State.PLAYING:
-                self._show_gui_page("AudioPlayer")
-            else:
-                self.speak("No music is currently playing", wait=True)
+            self._setup_gui()
+            self._show_gui_page("AudioPlayer")
 
     def handle_gui_restart(self, msg):
         pass
 
     def handle_gui_pause(self, msg):
+        if self.state == State.PLAYING:
+            self.state = State.PAUSED
+
         self.gui["status"] = "Paused"
         self.bus.emit(Message("mycroft.audio.service.pause"))
 
     def handle_gui_play(self, msg):
+        if self.state == State.PAUSED:
+            self.state = State.PLAYING
+
         self.gui["status"] = "Playing"
         self.bus.emit(Message("mycroft.audio.service.resume"))
 
     def handle_media_pause(self, msg):
+        if self.state == State.PLAYING:
+            self.state = State.PAUSED
+
         self.gui["status"] = "Paused"
 
     def handle_media_resume(self, msg):
+        if self.state == State.PAUSED:
+            self.state = State.PLAYING
+
         self.gui["status"] = "Playing"
 
     def handle_media_finished(self, message):
@@ -190,6 +204,20 @@ class DemoMusicSkill(CommonPlaySkill):
 
         self.CPS_play((self.stream.url, mime))
 
+        self._player_position = 0
+        self._setup_gui()
+        self.gui["status"] = "Playing"
+
+        self._show_gui_page("AudioPlayer")
+
+        self.state = State.PLAYING
+
+    def _setup_gui(self):
+        self.gui["theme"] = dict(fgColor="gray", bgColor="black")
+
+        if (self.result is None) or (self.stream is None):
+            return
+
         artist = self.result.author
         song = self.result.title
 
@@ -206,14 +234,8 @@ class DemoMusicSkill(CommonPlaySkill):
             "length": self.result.length * 1000,
             "skill": self.skill_id,
             "streaming": "true",
+            "position": self._player_position,
         }
-
-        self.gui["theme"] = dict(fgColor="gray", bgColor="black")
-        self.gui["status"] = "Playing"
-
-        self._show_gui_page("AudioPlayer")
-
-        self.state = State.PLAYING
 
     def stop(self) -> bool:
         if self.state != State.PLAYING:
@@ -226,14 +248,16 @@ class DemoMusicSkill(CommonPlaySkill):
         return True
 
     def _go_inactive(self):
-        LOG.info("Music is now inactive")
-        self.stream = None
-        self.result = None
+        if self.state == State.PLAYING:
+            self.state = State.PAUSED
+        else:
+            self.state = State.INACTIVE
 
-        self.state = State.INACTIVE
-
+        self.gui["status"] = "Paused"
         if self.gui.connected:
             self.gui.release()
+
+        LOG.info("Music is now inactive")
 
 
 def create_skill():
