@@ -38,8 +38,8 @@ Mycroft.CardDelegate {
 
     property var media: sessionData.media
     property var playerDuration: media.length
-    property real playerPosition: 0
     property var playerState: sessionData.status
+    property real playerPosition: sessionData.position
     property bool isStreaming: media.streaming
     property bool streamTimerPaused: false
 
@@ -61,6 +61,9 @@ Mycroft.CardDelegate {
             streamTimer.running = true
         } else if(playerState === "Paused") {
             streamTimer.running = false
+        } else if(playerState === "Stopped") {
+            streamTimer.running = false
+            root.playerPosition = 0
         }
     }
 
@@ -178,7 +181,6 @@ Mycroft.CardDelegate {
                         KeyNavigation.down: seekableslider
                         onClicked: {
                             triggerGuiEvent("cps.gui.restart", {})
-                            root.playerPosition = 0
                         }
 
                         contentItem: Kirigami.Icon {
@@ -275,6 +277,7 @@ Mycroft.CardDelegate {
 
             T.Slider {
                 id: seekableslider
+                from: 0.0
                 to: playerDuration
                 anchors.left: parent.left
                 anchors.right: parent.right

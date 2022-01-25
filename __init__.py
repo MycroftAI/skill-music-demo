@@ -88,6 +88,7 @@ class DemoMusicSkill(CommonPlaySkill):
 
         self.gui["status"] = "Playing"
         self.bus.emit(Message("mycroft.audio.service.resume"))
+        self.gui["position"] = self._player_position_ms
 
     def handle_media_pause(self, msg):
         if self.state == State.PLAYING:
@@ -102,11 +103,9 @@ class DemoMusicSkill(CommonPlaySkill):
         self.gui["status"] = "Playing"
 
     def handle_media_position(self, msg):
-        position_sec = msg.data.get("position")
-        if (position_sec is not None) and (position_sec >= 0):
-            # TODO: Get this into the GUI somehow
-            # self.gui["playerPosition"] = ... does not work
-            self._player_position_ms = int(position_sec * 1000)
+        position_ms = msg.data.get("position_ms")
+        if (position_ms is not None) and (position_ms >= 0):
+            self._player_position_ms = position_ms
 
     def handle_media_finished(self, message):
         """Handle media playback finishing."""
@@ -206,6 +205,9 @@ class DemoMusicSkill(CommonPlaySkill):
             self._go_inactive()
             return
 
+        # Reset existing media
+        self.gui["status"] = "Stopped"
+
         # This is critical for some reason
         mime = "audio/mpeg"
 
@@ -245,11 +247,9 @@ class DemoMusicSkill(CommonPlaySkill):
         }
 
         self.gui["media"] = media_settings
+        self.gui["position"] = self._player_position_ms
 
     def stop(self) -> bool:
-        if self.state not in {State.PLAYING, State.PAUSED}:
-            return False
-
         LOG.info("Stopping")
 
         self._go_inactive()
