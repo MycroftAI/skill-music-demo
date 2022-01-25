@@ -169,33 +169,33 @@ Mycroft.CardDelegate {
                     width: mediaControlsContainer.width
                     height: mediaControlsContainer.height - trackInfo.height
 
-                    Controls.Button {
-                        id: restartButton
-                        anchors.right: playButton.left
-                        anchors.rightMargin: Mycroft.Units.gridUnit * 4
-                        anchors.top: mediaControls.top
-                        height: Mycroft.Units.gridUnit * 5
-                        width: Mycroft.Units.gridUnit * 5
-                        focus: false
-                        KeyNavigation.right: playButton
-                        KeyNavigation.down: seekableslider
-                        onClicked: {
-                            triggerGuiEvent("cps.gui.restart", {})
-                        }
+                    //Controls.Button {
+                    //    id: restartButton
+                    //    anchors.right: playButton.left
+                    //    anchors.rightMargin: Mycroft.Units.gridUnit * 4
+                    //    anchors.top: mediaControls.top
+                    //    height: Mycroft.Units.gridUnit * 5
+                    //    width: Mycroft.Units.gridUnit * 5
+                    //    focus: false
+                    //    KeyNavigation.right: playButton
+                    //    KeyNavigation.down: seekableslider
+                    //    onClicked: {
+                    //        triggerGuiEvent("cps.gui.restart", {})
+                    //    }
 
-                        contentItem: Kirigami.Icon {
-                            source: Qt.resolvedUrl("images/media-restart.svg")
-                            color: theme.fgColor
-                        }
+                    //    contentItem: Kirigami.Icon {
+                    //        source: Qt.resolvedUrl("images/media-restart.svg")
+                    //        color: theme.fgColor
+                    //    }
 
-                        background: Rectangle {
-                            color: "transparent"
-                        }
+                    //    background: Rectangle {
+                    //        color: "transparent"
+                    //    }
 
-                        Keys.onReturnPressed: {
-                            clicked()
-                        }
-                    }
+                    //    Keys.onReturnPressed: {
+                    //        clicked()
+                    //    }
+                    //}
 
                     Controls.Button {
                         id: playButton
