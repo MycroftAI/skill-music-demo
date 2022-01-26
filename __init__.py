@@ -76,6 +76,10 @@ class DemoMusicSkill(CommonPlaySkill):
         pass
 
     def handle_gui_pause(self, msg):
+        if self.state == State.INACTIVE:
+            LOG.warning("Cannot pause (inactive)")
+            return
+
         if self.state == State.PLAYING:
             self.state = State.PAUSED
 
@@ -83,7 +87,10 @@ class DemoMusicSkill(CommonPlaySkill):
         self.bus.emit(Message("mycroft.audio.service.pause"))
 
     def handle_gui_play(self, msg):
-        if self.state == State.PAUSED:
+        if self.state == State.INACTIVE:
+            self.speak_dialog("no-music", wait=True)
+            return
+        elif self.state == State.PAUSED:
             self.state = State.PLAYING
 
         self.gui["status"] = "Playing"
@@ -91,13 +98,19 @@ class DemoMusicSkill(CommonPlaySkill):
         self.gui["position"] = self._player_position_ms
 
     def handle_media_pause(self, msg):
+        if self.state == State.INACTIVE:
+            LOG.warning("Cannot pause (inactive)")
+            return
+
         if self.state == State.PLAYING:
             self.state = State.PAUSED
 
         self.gui["status"] = "Paused"
 
     def handle_media_resume(self, msg):
-        if self.state == State.PAUSED:
+        if self.state == State.INACTIVE:
+            self.speak_dialog("no-music", wait=True)
+        elif self.state == State.PAUSED:
             self.state = State.PLAYING
 
         self.gui["status"] = "Playing"
@@ -109,6 +122,7 @@ class DemoMusicSkill(CommonPlaySkill):
 
     def handle_media_finished(self, message):
         """Handle media playback finishing."""
+        self.state = State.INACTIVE
         self._go_inactive()
 
     def CPS_match_query_phrase(self, phrase: str) -> tuple((str, float, dict)):
