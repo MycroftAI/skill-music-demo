@@ -264,12 +264,9 @@ class DemoMusicSkill(CommonPlaySkill):
         self.gui["position"] = self._player_position_ms
 
     def stop(self) -> bool:
-        LOG.info("Stopping")
-
-        self.bus.emit(Message("mycroft.audio.service.stop"))
-        self._go_inactive()
-
-        return True
+        LOG.debug("Music Skill Stopping")
+        self.CPS_release_output_focus()
+        return self._go_inactive()
 
     def _go_inactive(self):
         if self.state == State.PLAYING:
@@ -282,6 +279,7 @@ class DemoMusicSkill(CommonPlaySkill):
             self.gui.release()
 
         LOG.info("Music is now inactive")
+        return True
 
 
 def create_skill():
