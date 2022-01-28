@@ -88,9 +88,9 @@ class DemoMusicSkill(CommonPlaySkill):
 
     def handle_gui_play(self, msg):
         if self.state == State.INACTIVE:
-            self.speak_dialog("no-music", wait=True)
             return
-        elif self.state == State.PAUSED:
+
+        if self.state == State.PAUSED:
             self.state = State.PLAYING
 
         self.gui["status"] = "Playing"
@@ -109,8 +109,9 @@ class DemoMusicSkill(CommonPlaySkill):
 
     def handle_media_resume(self, msg):
         if self.state == State.INACTIVE:
-            self.speak_dialog("no-music", wait=True)
-        elif self.state == State.PAUSED:
+            return
+
+        if self.state == State.PAUSED:
             self.state = State.PLAYING
 
         self.gui["status"] = "Playing"
