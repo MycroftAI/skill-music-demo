@@ -266,6 +266,7 @@ class DemoMusicSkill(CommonPlaySkill):
     def stop(self) -> bool:
         LOG.info("Stopping")
 
+        self.bus.emit(Message("mycroft.audio.service.stop"))
         self._go_inactive()
 
         return True
