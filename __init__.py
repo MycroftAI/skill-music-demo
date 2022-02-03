@@ -192,11 +192,22 @@ class DemoMusicSkill(CommonPlaySkill):
                     break
 
             if (self.stream is None) or (self.result is None):
-                LOG.error("No stream found")
+                LOG.info("Playing default song")
+                self.result.author = "Hunter and the Dirty Jacks"
+                self.result.title  = "Salt Whiskey"
+                self.result.thumbnail_url = "file://users/mycroft/skills/skill-music-demo.mycroftai/single_barrel.png"
+                self.result.length = 307
+                self.stream.url = "file://users/mycroft/skills/skill-music-demo.mycroftai/04-SaltWhiskey.mp3"
             else:
                 LOG.info("Stream found")
         except Exception:
             LOG.exception("error searching YouTube")
+            LOG.info("Playing default song")
+            self.result.author = "Hunter and the Dirty Jacks"
+            self.result.title  = "Salt Whiskey"
+            self.result.thumbnail_url = "file://users/mycroft/skills/skill-music-demo.mycroftai/single_barrel.png"
+            self.result.length = 307
+            self.stream.url = "file://users/mycroft/skills/skill-music-demo.mycroftai/04-SaltWhiskey.mp3"
         finally:
             self.search_ready.set()
 
