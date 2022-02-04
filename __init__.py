@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import hashlib
+import random
 import shutil
 import subprocess
 import tempfile
@@ -45,6 +46,7 @@ class DemoMusicSkill(CommonPlaySkill):
 
     By default, MPD music is looked for in ~/Music
     """
+
     def __init__(self):
         super().__init__(name="DemoMusicSkill")
 
@@ -262,7 +264,10 @@ class DemoMusicSkill(CommonPlaySkill):
         self.gui["status"] = "Playing"
 
         if mpd_successful:
-            tracks = [f"file://{song.file_path}" for song in self._mpd_playlist]
+            # tracks = [f"file://{song.file_path}" for song in self._mpd_playlist]
+            # HACK: Choosing a random track until skill has playlist functionality
+            random_track = random.choice(self._mpd_playlist)
+            tracks = [f"file://{song.file_path}" for song in [random_track]]
             self.CPS_play(tracks)
         else:
             mime = "audio/mpeg"
