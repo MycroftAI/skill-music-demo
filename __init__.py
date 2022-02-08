@@ -90,6 +90,11 @@ class DemoMusicSkill(CommonPlaySkill):
         self.gui.register_handler("cps.gui.pause", self.handle_gui_pause)
         self.gui.register_handler("cps.gui.play", self.handle_gui_play)
 
+    @intent_handler(AdaptIntent("").require("StopMusic"))
+    def handle_stop_music(self, message):
+        # for now just handles one phrase 'stop music'
+        self.stop()
+
     @intent_handler(AdaptIntent("").require("Show").require("Music"))
     def handle_show_music(self, message):
         with self.activity():
