@@ -290,6 +290,9 @@ class DemoMusicSkill(CommonPlaySkill):
             "position": self._player_position_ms,
         }
 
+        artist: str = "No artist"
+        title: str = "No song"
+
         if self._mpd_playlist:
             song = self._mpd_playlist[0]
             artist = song.artist
