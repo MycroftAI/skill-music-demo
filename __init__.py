@@ -93,7 +93,8 @@ class DemoMusicSkill(CommonPlaySkill):
     @intent_handler(AdaptIntent("").require("StopMusic"))
     def handle_stop_music(self, message):
         # for now just handles one phrase 'stop music'
-        self.stop()
+        with self.activity():
+            self.stop()
 
     @intent_handler(AdaptIntent("").require("Show").require("Music"))
     def handle_show_music(self, message):
