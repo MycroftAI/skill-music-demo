@@ -92,7 +92,6 @@ Mycroft.CardDelegate {
             anchors.right: parent.right
             anchors.bottom: trackInfo.top
             anchors.topMargin: Mycroft.Units.gridUnit * 1
-            anchors.horizontalCenter: parent.horizontalCenter
             color: "transparent"
 
             Image {
@@ -200,7 +199,8 @@ Mycroft.CardDelegate {
                 value: playerPosition
 
                 handle: Item {
-                    x: seekableslider.visualPosition * (parent.width - (Kirigami.Units.largeSpacing + Kirigami.Units.smallSpacing))
+                    x: seekableslider.visualPosition / (parent.width + Mycroft.Units.gridUnit * 2) * parent.width ** 2
+                    // The above calculation is to account for the size of the positionMarker
                     anchors.verticalCenter: parent.verticalCenter
                     height: Mycroft.Units.gridUnit * 2
 
