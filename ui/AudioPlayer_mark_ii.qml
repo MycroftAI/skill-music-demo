@@ -80,107 +80,85 @@ Mycroft.CardDelegate {
     }
 
     Rectangle {
+        id: cardContents
         anchors.fill: parent
         radius: Mycroft.Units.gridUnit
         color: Qt.darker(theme.bgColor)
 
-        Item {
-            id: topArea
+        Rectangle {
+            id: imageContainer
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.right: parent.right
-            anchors.bottom: bottomArea.top
-            anchors.topMargin: Mycroft.Units.gridUnit * 2
-            anchors.leftMargin: Mycroft.Units.gridUnit * 2
-            anchors.rightMargin: Mycroft.Units.gridUnit * 2
+            anchors.bottom: trackInfo.top
+            anchors.topMargin: Mycroft.Units.gridUnit * 1
+            anchors.horizontalCenter: parent.horizontalCenter
+            color: "transparent"
 
-            Rectangle {
-                id: imageContainer
-                width: Mycroft.Units.gridUnit * 18
-                height: Mycroft.Units.gridUnit * 18
-                anchors.top: parent.top // remove this on scalable
-                color: Qt.darker(theme.bgColor)
-                radius: Mycroft.Units.gridUnit
-
-                Image {
-                    id: trackImage
-                    visible: true
-                    enabled: true
-                    anchors.fill: parent
-                    anchors.leftMargin: Mycroft.Units.gridUnit / 2
-                    anchors.topMargin: Mycroft.Units.gridUnit / 2
-                    anchors.rightMargin: Mycroft.Units.gridUnit / 2
-                    anchors.bottomMargin: Mycroft.Units.gridUnit / 2
-                    source: media.image
-                    fillMode: Image.PreserveAspectFit
-                    z: 100
-                }
-            }
-
-            Rectangle {
-                id: mediaControlsContainer
-                anchors.top: parent.top
-                anchors.right: parent.right
-                anchors.bottom: bottomArea.top
-                anchors.left: imageContainer.right
-                // anchors.topMargin: provided by root container
-                // anchors.rightMargin: provided by root container
-                anchors.bottomMargin: Mycroft.Units.gridUnit * 2
-                anchors.leftMargin: Mycroft.Units.gridUnit * 2
-                width: Mycroft.Units.gridUnit * 24
-                height: Mycroft.Units.gridUnit * 22 - bottomArea.height
-                color: "transparent"
-
-                Item {
-                    id: trackInfo
-                    anchors.top: parent.top
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    width: parent.width
-                    height: Mycroft.Units.gridUnit * 5
-
-                    Title {
-                        id: newsBriefingTitle
-                        anchors.top: parent.top
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        fontSize: 35
-                        fontStyle: "Bold"
-                        color: theme.fgColor
-                        heightUnits: 2
-                        text: media.song
-                    }
-
-                    Title {
-                        id: station
-                        anchors.top: newsBriefingTitle.bottom
-                        anchors.topMargin: Mycroft.Units.gridUnit
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        fontSize: 47
-                        fontStyle: "Bold"
-                        color: theme.fgColor
-                        heightUnits: 3
-                        text: media.artist
-                    }
-                }
+            Image {
+                id: trackImage
+                visible: true
+                enabled: true
+                height: Mycroft.Units.gridUnit * 16
+                width: Mycroft.Units.gridUnit * 28
+                anchors.horizontalCenter: parent.horizontalCenter
+                source: media.image
+                fillMode: Image.PreserveAspectCrop
+                z: 100
             }
         }
 
         Rectangle {
-            id: bottomArea
+            id: trackInfo
+            anchors.bottom: sliderContainer.top
+            anchors.horizontalCenter: parent.horizontalCenter
             width: parent.width
-            anchors.bottom: parent.bottom
-            height: Mycroft.Units.gridUnit * 5
+            height: Mycroft.Units.gridUnit * 6
             color: "transparent"
 
+            Rectangle {
+                id: titleContainer
+                width: Mycroft.Units.gridUnit * 28
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottomMargin: Mycroft.Units.gridUnit
+                color: "transparent"
+
+                Title {
+                    id: trackTitle
+                    anchors.top: parent.top
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    fontSize: 24
+                    color: theme.fgColor
+                    heightUnits: 2
+                    text: media.song
+                }
+
+                Title {
+                    id: artistName
+                    anchors.top: trackTitle.bottom
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    fontSize: 47
+                    fontStyle: "Bold"
+                    color: theme.fgColor
+                    heightUnits: 3
+                    text: media.artist
+                }
+            }
+
+            
+            
             RowLayout {
                 anchors.left: parent.left
                 anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: Mycroft.Units.gridUnit / 2
                 visible: media.length !== -1 ? 1 : 0
                 enabled: media.length !== -1 ? 1 : 0
                 
                 Controls.Label {
-                    anchors.left: parent.left
-                    anchors.leftMargin: Mycroft.Units.gridUnit * 2
-                    font.pixelSize: Mycroft.Units.gridUnit * 2
+                    Layout.alignment: Qt.AlignLeft
+                    Layout.leftMargin: Mycroft.Units.gridUnit * 2
+                    font.pixelSize: 35
                     font.bold: true
                     horizontalAlignment: Text.AlignLeft
                     verticalAlignment: Text.AlignVCenter
@@ -189,9 +167,9 @@ Mycroft.CardDelegate {
                 }
 
                 Controls.Label {
-                    anchors.right: parent.right
-                    anchors.rightMargin: Mycroft.Units.gridUnit * 2
-                    font.pixelSize: Mycroft.Units.gridUnit * 2
+                    Layout.alignment: Qt.AlignRight
+                    Layout.rightMargin: Mycroft.Units.gridUnit * 2
+                    font.pixelSize: 35
                     font.bold: true
                     horizontalAlignment: Text.AlignRight
                     verticalAlignment: Text.AlignVCenter
@@ -199,6 +177,14 @@ Mycroft.CardDelegate {
                     color: theme.fgColor
                 }
             }
+        }
+
+        Rectangle {
+            id: sliderContainer
+            width: parent.width
+            anchors.bottom: parent.bottom
+            height: Mycroft.Units.gridUnit * 2
+            color: "transparent"
 
             T.Slider {
                 id: seekableslider

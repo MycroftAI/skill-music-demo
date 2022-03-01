@@ -304,17 +304,23 @@ class DemoMusicSkill(CommonPlaySkill):
             if thumbnail_path:
                 media_settings["image"] = f"file://{thumbnail_path}"
         elif (self.result is not None) and (self.stream is not None):
-            artist = self.result.author
-            title = self.result.title
+            metadata, artist, title = None, None, None
+            if len(self.result.metadata.metadata) > 0:
+                metadata = self.result.metadata.metadata[0]
+                artist = metadata["Artist"]
+                title = metadata["Song"]
+            # If information is missing use video author and title
+            artist = artist or self.result.author
+            title = title or self.result.title
 
             media_settings["image"] = self.result.thumbnail_url
             media_settings["length"] = self.result.length * 1000
 
-        if len(artist) > 15:
-            artist = artist[:15]
+        if len(artist) > 18:
+            artist = artist[:18]
 
-        if len(title) > 25:
-            title = title[:23] + "..."
+        if len(title) > 50:
+            title = title[:48] + "..."
 
         media_settings["artist"] = artist
         media_settings["song"] = title
