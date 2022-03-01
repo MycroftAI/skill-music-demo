@@ -120,7 +120,6 @@ Mycroft.CardDelegate {
                 id: titleContainer
                 width: Mycroft.Units.gridUnit * 28
                 anchors.horizontalCenter: parent.horizontalCenter
-                anchors.bottomMargin: Mycroft.Units.gridUnit
                 color: "transparent"
 
                 Title {
