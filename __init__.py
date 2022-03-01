@@ -284,7 +284,7 @@ class DemoMusicSkill(CommonPlaySkill):
         self.state = State.PLAYING
 
     def _setup_gui(self):
-        self.gui["theme"] = dict(fgColor="gray", bgColor="black")
+        self.gui["theme"] = dict(fgColor="white", bgColor="black")
         media_settings = {
             "skill": self.skill_id,
             "streaming": "true",

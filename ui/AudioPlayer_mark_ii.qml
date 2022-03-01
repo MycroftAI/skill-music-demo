@@ -161,83 +161,6 @@ Mycroft.CardDelegate {
                         text: media.artist
                     }
                 }
-                Item {
-                    id: mediaControls
-                    anchors.top: trackInfo.bottom
-                    anchors.topMargin: Mycroft.Units.gridUnit * 2
-                    anchors.right: mediaControlsContainer.right
-                    width: mediaControlsContainer.width
-                    height: mediaControlsContainer.height - trackInfo.height
-
-                    Controls.Button {
-                        id: restartButton
-                        visible: false
-                        anchors.right: playButton.left
-                        anchors.rightMargin: Mycroft.Units.gridUnit * 4
-                        anchors.top: mediaControls.top
-                        height: Mycroft.Units.gridUnit * 5
-                        width: Mycroft.Units.gridUnit * 5
-                        focus: false
-                        KeyNavigation.right: playButton
-                        KeyNavigation.down: seekableslider
-                        onClicked: {
-                            triggerGuiEvent("cps.gui.restart", {})
-                        }
-
-                        contentItem: Kirigami.Icon {
-                            source: Qt.resolvedUrl("images/media-restart.svg")
-                            color: theme.fgColor
-                        }
-
-                        background: Rectangle {
-                            color: "transparent"
-                        }
-
-                        Keys.onReturnPressed: {
-                            clicked()
-                        }
-                    }
-
-                    Controls.Button {
-                        id: playButton
-                        visible: false
-                        anchors.right: mediaControls.right
-                        anchors.rightMargin: Mycroft.Units.gridUnit * 4
-                        anchors.top: mediaControls.top
-                        height: Mycroft.Units.gridUnit * 5
-                        width: Mycroft.Units.gridUnit * 5
-                        onClicked: {
-                            if (playerState != "Playing"){
-                                triggerGuiEvent("cps.gui.play", {"media": {
-                                                        "image": media.image,
-                                                        "track": media.track,
-                                                        "album": media.album,
-                                                        "skill_id": media.skill,
-                                                        "length": media.length,
-                                                        "position": playerPosition
-                                                        }})
-                            } else {
-                                triggerGuiEvent("cps.gui.pause", {"media": {
-                                                        "image": media.image,
-                                                        "track": media.track,
-                                                        "album": media.album,
-                                                        "skill_id":media.skill,
-                                                        "length": media.length,
-                                                        "position": playerPosition
-                                                        }})
-                            }
-                        }
-
-                        background: Rectangle {
-                            color: "transparent"
-                        }
-
-                        contentItem: Kirigami.Icon {
-                            color: theme.fgColor
-                            source: playerState === "Playing" ? Qt.resolvedUrl("images/media-playback-pause.svg") : Qt.resolvedUrl("images/media-playback-start.svg")
-                        }
-                    }
-                }
             }
         }
 
@@ -305,23 +228,8 @@ Mycroft.CardDelegate {
                         implicitHeight: Mycroft.Units.gridUnit * 2
                         radius: 100
                         color: seekableslider.pressed ? "#f0f0f0" : "#f6f6f6"
-                        border.color: theme.bgColor
+                        border.color: theme.fgColor
                     }
-                }
-
-                Controls.Label {
-                    id: streamingLabel
-                    visible: isStreaming
-                    enabled: isStreaming
-                    width: seekableslider.availableWidth
-                    height: seekableslider.availableHeight
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                    text: "Streaming"
-                    font.pixelSize: Mycroft.Units.gridUnit * 1.5
-                    font.capitalization: Font.Capitalize
-                    font.bold: true
-                    color: theme.fgColor
                 }
 
                 background: Rectangle {
@@ -331,7 +239,7 @@ Mycroft.CardDelegate {
                     width: seekableslider.availableWidth
                     height: Mycroft.Units.gridUnit * 2
                     radius: Mycroft.Units.gridUnit
-                    color: theme.fgColor
+                    color: "#22A7F0"
                 }
             }
         }
