@@ -224,7 +224,7 @@ Mycroft.CardDelegate {
                     width: seekableslider.availableWidth
                     height: Mycroft.Units.gridUnit * 2
                     radius: Mycroft.Units.gridUnit
-                    color: "#22A7F0"
+                    color: Qt.darker("#22A7F0")
                 }
             }
         }
