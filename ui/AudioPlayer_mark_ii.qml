@@ -124,22 +124,22 @@ Mycroft.CardDelegate {
                 Title {
                     id: trackTitle
                     anchors.top: parent.top
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    fontSize: 24
+                    font.pixelSize: 24
                     color: theme.fgColor
                     heightUnits: 2
                     text: media.song
+                    maxTextLength: 40
                 }
 
                 Title {
                     id: artistName
                     anchors.top: trackTitle.bottom
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    fontSize: 47
-                    fontStyle: "Bold"
+                    font.pixelSize: 47
+                    font.styleName: "Bold"
                     color: theme.fgColor
                     heightUnits: 3
                     text: media.artist
+                    maxTextLength: 17
                 }
             }
 

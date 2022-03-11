@@ -316,12 +316,6 @@ class DemoMusicSkill(CommonPlaySkill):
             media_settings["image"] = self.result.thumbnail_url
             media_settings["length"] = self.result.length * 1000
 
-        if len(artist) > 18:
-            artist = artist[:18]
-
-        if len(title) > 50:
-            title = title[:48] + "..."
-
         media_settings["artist"] = artist
         media_settings["song"] = title
 
