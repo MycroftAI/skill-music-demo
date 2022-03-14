@@ -134,10 +134,10 @@ Mycroft.CardDelegate {
                 Title {
                     id: artistName
                     anchors.top: trackTitle.bottom
-                    font.pixelSize: 47
+                    font.pixelSize: 38
                     font.styleName: "Bold"
                     color: theme.fgColor
-                    heightUnits: 3
+                    heightUnits: 4
                     text: media.artist
                     maxTextLength: 17
                 }
