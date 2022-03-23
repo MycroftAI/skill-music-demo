@@ -307,8 +307,8 @@ class DemoMusicSkill(CommonPlaySkill):
             metadata, artist, title = None, None, None
             if len(self.result.metadata.metadata) > 0:
                 metadata = self.result.metadata.metadata[0]
-                artist = metadata["Artist"]
-                title = metadata["Song"]
+                artist = metadata.get("Artist")
+                title = metadata.get("Song")
             # If information is missing use video author and title
             artist = artist or self.result.author
             title = title or self.result.title
