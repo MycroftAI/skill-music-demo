@@ -100,7 +100,7 @@ class DemoMusicSkill(CommonPlaySkill):
     def handle_show_music(self, message):
         with self.activity():
             self._setup_gui()
-            self._show_gui_page("AudioPlayer")
+            self._show_gui_page("audio_player")
 
     def handle_gui_restart(self, msg):
         pass
