@@ -312,6 +312,8 @@ class DemoMusicSkill(CommonPlaySkill):
             # If information is missing use video author and title
             artist = artist or self.result.author
             title = title or self.result.title
+            if title.startswith(artist + " - "):
+                title = title.replace(artist + " - ", "")
 
             media_settings["image"] = self.result.thumbnail_url
             media_settings["length"] = self.result.length * 1000
