@@ -279,7 +279,7 @@ class DemoMusicSkill(CommonPlaySkill):
             mime = "audio/mpeg"
             self.CPS_play((self.stream.url, mime))
 
-        self._show_gui_page("AudioPlayer")
+        self._show_gui_page("audio_player")
 
         self.state = State.PLAYING
 
