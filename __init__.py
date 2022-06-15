@@ -78,6 +78,10 @@ class DemoMusicSkill(CommonPlaySkill):
         # Selected audio stream to play from search result
         self.stream = None
 
+        self.desc = None
+        self.title = None
+        self.keywords = None
+
         self._player_position_ms: int = 0
 
     def register_gui_handlers(self):
@@ -156,44 +160,83 @@ class DemoMusicSkill(CommonPlaySkill):
         self.state = State.INACTIVE
         self._go_inactive()
 
+    def confidence(self, phrase, station):
+        phrase = phrase.lower()
+        name = station['name']
+        name = name.replace("\n"," ")
+        name = name.lower()
+        tags = station.get('tags',[])
+        if type(tags) is not list:
+            tags = tags.split(",")
+        confidence = 0.0
+        if phrase in name:
+            confidence += 0.1
+        for tag in tags:
+            tag = tag.lower()
+            if phrase in tag:
+                confidence += 0.01
+            if phrase == tag:
+                confidence += 0.1
+
+        confidence = min(confidence,1.0)
+        return confidence
+
+
     def CPS_match_query_phrase(self, phrase: str) -> tuple((str, float, dict)):
         """Respond to Common Play Service query requests.
         """
+        original_phrase = phrase
         phrase = phrase.strip()
 
         if not phrase:
             return None
 
-        phrase = phrase.replace(" by ", " ")
-
-        for word in ["play", "listen"]:
-            if phrase.startswith(word):
-                phrase = phrase[len(word) :]
-                break
-
-        phrase = phrase.strip()
         phrase = phrase.replace("&", " and ")
         phrase = phrase.replace("  ", " ")
         phrase = phrase.strip()
 
-        # Run search in separate thread
-        self._search_for_music(phrase)
+        confidence = 0.0
+        skill_data = {
+                "media_uri":"",
+                "name":"",
+                "tags":"",
+                "confidence":0.0,
+                }
 
-        # Assume we'll get something
-        return (phrase, CPSMatchLevel.EXACT, {})
-
-    def _search_for_music(self, phrase: str):
-        """Run search in separate thread to avoid CPS timeouts"""
         self.search_ready.clear()
         self.state = State.SEARCHING
 
         self._mpd_playlist = []
         self.result = None
         self.stream = None
-        self.search_thread = threading.Thread(
-            target=self._run_search, daemon=True, args=(phrase,)
-        )
-        self.search_thread.start()
+        self.keywords = None
+        self.title = None
+
+        LOG.debug("MUSIC: search start %s" % (phrase,))
+        try:
+            self._run_search(phrase)
+        except:
+            LOG.error("MUSIC: _run_search() threw an exception")
+
+        if self.result:
+            skill_data['media_uri'] = self.result.video_id
+            skill_data['tags'] = self.keywords
+            skill_data['name'] = self.title
+            confidence = self.confidence(original_phrase, skill_data)
+
+            # skill specific alterations
+            if len(phrase.split(" ")) > 3:
+                # 4 words or more
+                confidence += 0.1
+
+            if ' by ' in phrase:
+                # we might have an artist 
+                confidence += 0.1
+
+            skill_data['confidence'] = confidence
+        
+        return (phrase, CPSMatchLevel.EXACT, skill_data)
+
 
     def _run_search(self, phrase: str):
         """Search YouTube and grab first audio stream"""
@@ -209,6 +252,7 @@ class DemoMusicSkill(CommonPlaySkill):
             if not self._mpd_playlist:
                 LOG.info("Searching YouTube for %s", phrase)
                 yt_results = Search(phrase).results
+                # TODO - dont return streams over xx seconds long
 
                 for result in yt_results:
                     try:
@@ -226,6 +270,9 @@ class DemoMusicSkill(CommonPlaySkill):
                             # Take the first available stream with audio
                             self.result = result
                             self.stream = stream
+                            self.desc = result.description
+                            self.keywords = result.keywords
+                            self.title = result.title
                             break
 
                     if self.stream is not None:
@@ -234,9 +281,9 @@ class DemoMusicSkill(CommonPlaySkill):
                 if (self.stream is None) or (self.result is None):
                     LOG.error("No stream found")
                 else:
-                    LOG.info("Stream found")
+                    LOG.debug("Stream found, title:%s, key words:%s, desc:%s" % (self.title, self.keywords, self.desc))
         except Exception:
-            LOG.exception("error searching YouTube")
+            LOG.exception("Exception searching YouTube")
         finally:
             self.search_ready.set()
 
